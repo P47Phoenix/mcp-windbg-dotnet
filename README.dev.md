@@ -33,10 +33,22 @@ Output examples:
 ```
 
 ### Configuration
-Environment variable overrides (prefix `MWD_`) map onto `Server:*` keys. Example:
+We intentionally removed the Microsoft.Extensions.Configuration stack to avoid runtime assembly load issues in this minimal phase. A lightweight loader now:
+1. Reads `appsettings.json` if present (root only, optional).
+2. Applies environment overrides with prefix `MWD_SERVER_` (upper-case, flat keys).
+
+Supported keys (defaults in parentheses):
+- `MWD_SERVER_VERSION` (0.1.0)
+- `MWD_SERVER_IMPLEMENTATION` (skeleton)
+- `MWD_SERVER_CONFIGRELOADSECONDS` (30)
+
+Example:
 ```powershell
-$env:MWD_Server__Version="0.1.1"; dotnet run --project src/Mcp.Windbg.Server
+$env:MWD_SERVER_VERSION="0.1.1"
+dotnet run --project src/Mcp.Windbg.Server
 ```
+
+Hot reload interval is respected only when `ConfigLoader.Load()` is called again after the configured seconds.
 
 ### Next Steps (Per PRD)
 - Add real MCP protocol bindings.
