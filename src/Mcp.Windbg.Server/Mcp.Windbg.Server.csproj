@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Mcp.Windbg.Server</AssemblyName>
+    <RootNamespace>Mcp.Windbg.Server</RootNamespace>
+    <Description>Model Context Protocol server skeleton for WinDBG integration (scaffolding)</Description>
+    <Version>0.1.0</Version>
+    <RepositoryUrl>https://github.com/P47Phoenix/mcp-windbg-dotnet</RepositoryUrl>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+</Project>
