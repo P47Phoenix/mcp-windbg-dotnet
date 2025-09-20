@@ -1,4 +1,8 @@
+using System;
+using System.IO;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using Mcp.Windbg.Server.Protocol;
 using Mcp.Windbg.Server.Tools;
 using Xunit;
@@ -22,8 +26,6 @@ public class ListToolsIntegrationTests
 
         var loop = new MessageLoop(registry, input, output, cts.Token);
         await loop.RunAsync();
-
-', '\r' }, StringSplitOptions.RemoveEmptyEntries);
         var lines = outputBuilder.ToString()
             .Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
         Assert.Single(lines);
