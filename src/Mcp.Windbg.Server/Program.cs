@@ -40,6 +40,7 @@ if (cfg.Features.SessionManagement)
 {
     registry
         .Register(new OpenDumpTool(sessionRepository))
+        .Register(new OpenRemoteTool(sessionRepository))
         .Register(new CloseDumpTool(sessionRepository))
         .Register(new RunCommandTool(sessionRepository, commandPolicy))
         .Register(new ListDumpsTool(cfg.Sessions.DumpSearchPaths.Length > 0 
