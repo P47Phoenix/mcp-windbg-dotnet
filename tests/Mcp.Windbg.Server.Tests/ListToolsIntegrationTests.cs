@@ -23,9 +23,9 @@ public class ListToolsIntegrationTests
         var loop = new MessageLoop(registry, input, output, cts.Token);
         await loop.RunAsync();
 
-        var lines = outputBuilder.ToString()
-            .Split(new[] { '\
 ', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+        var lines = outputBuilder.ToString()
+            .Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
         Assert.Single(lines);
         Assert.Contains("health_check", lines[0]);
     }
