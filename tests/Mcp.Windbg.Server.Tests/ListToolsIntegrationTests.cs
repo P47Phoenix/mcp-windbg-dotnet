@@ -1,8 +1,4 @@
-using System.IO;
 using System.Text;
-using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using Mcp.Windbg.Server.Protocol;
 using Mcp.Windbg.Server.Tools;
 using Xunit;
@@ -17,15 +13,20 @@ public class ListToolsIntegrationTests
         var registry = new ToolRegistry();
         registry.Register(new HealthCheckTool());
         using var cts = new CancellationTokenSource();
-        var loop = new MessageLoop(registry, cts.Token);
 
-        // Simulate stdin/stdout via pipes: redirect Console temporarily.
-        using var input = new AnonymousPipeServerStream(PipeDirection.Out, HandleInheritability.None);
-        using var output = new AnonymousPipeServerStream(PipeDirection.In, HandleInheritability.None);
+        var inputBuilder = new StringBuilder();
+        inputBuilder.AppendLine("{\"method\":\"list_tools\"}");
+        using var input = new StringReader(inputBuilder.ToString());
+        var outputBuilder = new StringBuilder();
+        using var output = new StringWriter(outputBuilder);
 
-        // NOTE: Simplification: Instead of refactoring MessageLoop for injectable streams,
-        // we directly validate tool registry independently.
-        var tools = registry.List();
-        Assert.Contains(tools, t => t.Name == "health_check");
+        var loop = new MessageLoop(registry, input, output, cts.Token);
+        await loop.RunAsync();
+
+        var lines = outputBuilder.ToString()
+            .Split(new[] { '\
+', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+        Assert.Single(lines);
+        Assert.Contains("health_check", lines[0]);
     }
 }
