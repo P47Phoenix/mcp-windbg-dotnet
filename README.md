@@ -38,6 +38,18 @@ Helper script (optional) to auto-detect debugger root using environment, running
 ./scripts/find-windbg.ps1 | Out-Host
 ```
 
+Stage binaries from a Microsoft Store WinDbg package (copies or symlinks into `C:\Tools\WinDbg`):
+```powershell
+# Auto-detect newest package and stage (copies) into C:\Tools\WinDbg
+./scripts/stage-windbg-store.ps1
+
+# Explicit path example (from your observation):
+./scripts/stage-windbg-store.ps1 -StorePath 'C:\Program Files\WindowsApps\Microsoft.WinDbg_1.2409.17001.0_x64__8wekyb3d8bbwe\amd64'
+
+# Use symbolic links instead of copies (requires appropriate privileges):
+./scripts/stage-windbg-store.ps1 -Symlink -Force
+```
+
 ---
 ## 2. Example MCP Configs
 
