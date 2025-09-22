@@ -9,7 +9,34 @@ public sealed class ServerConfig
     public int ConfigReloadSeconds { get; init; } = 30;
 }
 
+public sealed class SessionConfig
+{
+    public int MaxConcurrentSessions { get; init; } = 5;
+    public int IdleTimeoutMinutes { get; init; } = 10;
+    public string[] DumpSearchPaths { get; init; } = Array.Empty<string>();
+}
+
+public sealed class PolicyConfig  
+{
+    public bool Enabled { get; init; } = true;
+    public bool AllowByDefault { get; init; } = false;
+    public string[] AllowedCommands { get; init; } = Array.Empty<string>();
+    public string[] AllowedPatterns { get; init; } = Array.Empty<string>();
+    public string[] DeniedPatterns { get; init; } = Array.Empty<string>();
+}
+
+public sealed class FeatureFlags
+{
+    public bool SessionManagement { get; init; } = true;
+    public bool PolicyEnforcement { get; init; } = true;
+    public bool ManagedAnalysis { get; init; } = false;
+    public bool MetricsCollection { get; init; } = true;
+}
+
 public sealed class RootConfig
 {
     public ServerConfig Server { get; init; } = new();
+    public SessionConfig Sessions { get; init; } = new();
+    public PolicyConfig Policy { get; init; } = new();
+    public FeatureFlags Features { get; init; } = new();
 }
