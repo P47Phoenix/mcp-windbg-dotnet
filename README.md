@@ -33,6 +33,11 @@ Get-ChildItem $env:WINDBG_PATH
 & "$env:WINDBG_PATH\cdb.exe" -version
 ```
 
+Helper script (optional) to auto-detect debugger root using environment, running processes (pslist / Get-Process), SDK paths, and PATH:
+```powershell
+./scripts/find-windbg.ps1 | Out-Host
+```
+
 ---
 ## 2. Example MCP Configs
 
