@@ -3,36 +3,31 @@
 Minimal Model Context Protocol (MCP) server for policy-aware WinDBG / CDB automation & structured dump analysis.
 
 ---
-## 1. Install WinDBG / CDB
-You must have the Windows Debugging Tools installed (x64) and accessible.
+## 1. Install WinDbg
+You need the Windows debugging tools (x64). For this project we assume you use the current Microsoft Store distribution of WinDbg. The former "Preview" branding has been removed upstream.
 
-Option A – Windows SDK (classic WinDBG + CDB):
-1. Download & run latest Windows 10/11 SDK installer.
-2. In feature selection, ensure “Debugging Tools for Windows” is checked.
-3. Default path (x64 tools):
-   - `C:\Program Files (x86)\Windows Kits\10\Debuggers\x64` (adjust version if different)
+Install (Microsoft Store):
+1. Open Microsoft Store, search for "WinDbg".
+2. Install "WinDbg".
+3. Launch once so it completes initial provisioning (symbols/settings).
 
-Option B – WinDbg Preview (Microsoft Store):
-1. Install “WinDbg Preview” from Microsoft Store.
-2. Preview includes a modern UI; the classic CDB may still be preferred for automation.
+Notes:
+- Modern WinDbg provides the updated UI and underlying debugging engine.
+- If you require a stable, non-packaged path with an unsuffixed `cdb.exe` for scripting, you can additionally install the Windows SDK (intentionally omitted here per project guidance to keep this section minimal).
+- Store installation resides under a protected `WindowsApps` folder; for automation you may copy or symlink the needed console debugger binaries into a tools directory you control and point `WINDBG_PATH` there.
 
-Option C – winget (script-friendly):
+Prepare environment variable (after you have a tools directory with `cdb.exe` or variants):
 ```powershell
-winget install --id Microsoft.WindowsSDK --source winget
+$env:WINDBG_PATH = "C:\Tools\WinDbg"
 ```
-After install, verify path contains `cdb.exe`.
-
-Option D – Standalone Debugging Tools (Visual Studio installer):
-1. Launch Visual Studio Installer > Modify.
-2. Individual components: add “Just-In-Time Debugger / Windows 10 SDK Debugging Tools”.
-
-Environment Setup (recommended):
+Persist (optional):
 ```powershell
-$env:WINDBG_PATH = "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64"
-# Persist (PowerShell profile):  Add-Content $PROFILE '$env:WINDBG_PATH="C:\Program Files (x86)\Windows Kits\10\Debuggers\x64"'
+Add-Content $PROFILE '$env:WINDBG_PATH="C:\Tools\WinDbg"'
 ```
-Quick sanity test:
+
+Quick sanity test (if `cdb.exe` present):
 ```powershell
+Get-ChildItem $env:WINDBG_PATH
 & "$env:WINDBG_PATH\cdb.exe" -version
 ```
 
