@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Mcp.Windbg.Server.Session;
 
 namespace Mcp.Windbg.Server.Tools.Analysis;
@@ -7,7 +8,7 @@ namespace Mcp.Windbg.Server.Tools.Analysis;
 /// <summary>
 /// Tool for performing comprehensive dump analysis with structured output.
 /// </summary>
-public sealed class AnalyzeDumpTool : ITool
+public sealed class AnalyzeDumpTool : ToolBase<AnalyzeDumpTool.AnalyzeDumpArgs, AnalyzeDumpTool.AnalyzeDumpResult>
 {
     private readonly SessionRepository _sessionRepository;
 
@@ -21,76 +22,50 @@ public sealed class AnalyzeDumpTool : ITool
     }
 
     /// <inheritdoc/>
-    public string Name => "analyze_dump";
+    public override string Name => "analyze_dump";
 
     /// <inheritdoc/>
-    public string Description => "Perform comprehensive dump analysis including crash analysis, stack traces, and system state.";
+    public override string Description => "Perform comprehensive dump analysis including crash analysis, stack traces, and system state.";
 
     /// <inheritdoc/>
-    public async Task<JsonNode> ExecuteAsync(JsonNode? args, CancellationToken ct)
+    public override async Task<AnalyzeDumpResult> ExecuteTypedAsync(AnalyzeDumpArgs args, CancellationToken ct)
     {
-        // Parse arguments
-        if (args == null)
-            throw new ArgumentException("Missing arguments. Required: sessionId");
+        if (string.IsNullOrWhiteSpace(args.SessionId))
+        {
+            throw new ArgumentException("sessionId is required");
+        }
 
-        var sessionId = args["sessionId"]?.GetValue<string>();
-        if (string.IsNullOrWhiteSpace(sessionId))
-            throw new ArgumentException("Missing or empty sessionId argument");
-
-        var includeModules = args["includeModules"]?.GetValue<bool>() ?? true;
-        var includeThreads = args["includeThreads"]?.GetValue<bool>() ?? true;
-        var includeRegisters = args["includeRegisters"]?.GetValue<bool>() ?? false;
-        var stackFrameCount = args["stackFrameCount"]?.GetValue<int>() ?? 10;
+        var session = _sessionRepository.GetSession(args.SessionId);
+        if (session == null)
+        {
+            return AnalyzeDumpResult.CreateError(args.SessionId, "SessionNotFound", $"Session {args.SessionId} not found");
+        }
+        if (!session.IsActive)
+        {
+            return AnalyzeDumpResult.CreateError(args.SessionId, "SessionInactive", $"Session {args.SessionId} is not active");
+        }
 
         try
         {
-            // Get the session
-            var session = _sessionRepository.GetSession(sessionId);
-            if (session == null)
-            {
-                return new JsonObject
-                {
-                    ["success"] = false,
-                    ["error"] = "SessionNotFound",
-                    ["message"] = $"Session {sessionId} not found"
-                };
-            }
+            var started = DateTime.UtcNow;
+            var analysis = await PerformAnalysisAsync(session,
+                args.IncludeModules, args.IncludeThreads, args.IncludeRegisters, args.StackFrameCount, ct).ConfigureAwait(false);
+            var finished = DateTime.UtcNow;
 
-            if (!session.IsActive)
-            {
-                return new JsonObject
-                {
-                    ["success"] = false,
-                    ["error"] = "SessionInactive",
-                    ["message"] = $"Session {sessionId} is not active"
-                };
-            }
-
-            var startTime = DateTime.UtcNow;
-            var analysis = await PerformAnalysisAsync(session, includeModules, includeThreads, includeRegisters, stackFrameCount, ct);
-            var endTime = DateTime.UtcNow;
-
-            var result = new JsonObject
-            {
-                ["success"] = true,
-                ["sessionId"] = sessionId,
-                ["analysisTimeMs"] = (int)(endTime - startTime).TotalMilliseconds,
-                ["timestamp"] = endTime.ToString("O"),
-                ["analysis"] = analysis.JsonData,
-                ["markdown"] = analysis.MarkdownReport
-            };
-
-            return result;
+            return AnalyzeDumpResult.CreateSuccess(args.SessionId,
+                (int)(finished - started).TotalMilliseconds,
+                finished,
+                analysis.JsonData,
+                analysis.MarkdownReport,
+                new AnalyzeDumpResult.AnalysisOptionsRecord(
+                    args.IncludeModules,
+                    args.IncludeThreads,
+                    args.IncludeRegisters,
+                    args.StackFrameCount));
         }
         catch (Exception ex)
         {
-            return new JsonObject
-            {
-                ["success"] = false,
-                ["error"] = "AnalysisError",
-                ["message"] = ex.Message,
-                ["sessionId"] = sessionId
-            };
+            return AnalyzeDumpResult.CreateError(args.SessionId, "AnalysisError", ex.Message);
         }
     }
 
@@ -211,4 +186,54 @@ public sealed class AnalyzeDumpTool : ITool
 
     private record AnalysisSection(string Title, string Content);
     private record AnalysisResult(JsonObject JsonData, string MarkdownReport);
+
+    // Typed contracts
+    public sealed class AnalyzeDumpArgs
+    {
+        [JsonPropertyName("sessionId")] public string SessionId { get; set; } = string.Empty;
+        [JsonPropertyName("includeModules")] public bool IncludeModules { get; set; } = true;
+        [JsonPropertyName("includeThreads")] public bool IncludeThreads { get; set; } = true;
+        [JsonPropertyName("includeRegisters")] public bool IncludeRegisters { get; set; } = false;
+        [JsonPropertyName("stackFrameCount")] public int StackFrameCount { get; set; } = 10;
+    }
+
+    public sealed class AnalyzeDumpResult
+    {
+        [JsonPropertyName("success")] public bool Success { get; init; }
+        [JsonPropertyName("sessionId")] public string SessionId { get; init; } = string.Empty;
+        [JsonPropertyName("analysisTimeMs")] public int? AnalysisTimeMs { get; init; }
+        [JsonPropertyName("timestamp")] public string? Timestamp { get; init; }
+        [JsonPropertyName("analysis")] public JsonObject? Analysis { get; init; }
+        [JsonPropertyName("markdown")] public string? Markdown { get; init; }
+        [JsonPropertyName("error")] public string? Error { get; init; }
+        [JsonPropertyName("message")] public string? Message { get; init; }
+        [JsonPropertyName("options")] public AnalysisOptionsRecord? Options { get; init; }
+
+        public sealed record AnalysisOptionsRecord(
+            [property: JsonPropertyName("includeModules")] bool IncludeModules,
+            [property: JsonPropertyName("includeThreads")] bool IncludeThreads,
+            [property: JsonPropertyName("includeRegisters")] bool IncludeRegisters,
+            [property: JsonPropertyName("stackFrameCount")] int StackFrameCount);
+
+        public static AnalyzeDumpResult CreateSuccess(string sessionId, int analysisTimeMs, DateTime finishedUtc, JsonObject analysis, string markdown, AnalysisOptionsRecord options)
+            => new()
+            {
+                Success = true,
+                SessionId = sessionId,
+                AnalysisTimeMs = analysisTimeMs,
+                Timestamp = finishedUtc.ToString("O"),
+                Analysis = analysis,
+                Markdown = markdown,
+                Options = options
+            };
+
+        public static AnalyzeDumpResult CreateError(string sessionId, string error, string message)
+            => new()
+            {
+                Success = false,
+                SessionId = sessionId,
+                Error = error,
+                Message = message
+            };
+    }
 }
