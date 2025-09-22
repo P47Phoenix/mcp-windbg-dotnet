@@ -1,230 +1,116 @@
 # mcp-windbg-dotnet
 
-## Product Documentation
-See the PRD hub and templates in `docs/prd/`:
-- PRD Hub: `docs/prd/README.md`
-- Decision Log: `docs/prd/decision-log/`
-- Backlog: `docs/prd/backlog/`
-- Metrics: `docs/prd/metrics/`
-- Release Plan: `docs/prd/release-plan/`
-- Risk Register: `docs/prd/risk-register.md`
+Minimal Model Context Protocol (MCP) server for policy-aware WinDBG / CDB automation & structured dump analysis.
 
-Templates available:
-- Product Requirement: `docs/prd/_template-prd.md`
-- Feature Spec: `docs/prd/_template-feature-spec.md`
-- Acceptance Checklist: `docs/prd/_template-acceptance-checklist.md`
+---
+## 1. Install WinDBG / CDB
+You must have the Windows Debugging Tools installed (x64) and accessible.
 
-## Overview
-`mcp-windbg-dotnet` provides a Model Context Protocol (MCP) server that exposes a curated, policy-aware subset of WinDBG / CDB functionality and higher-level analysis helpers (e.g. `analyze_dump`) to AI copilots and MCP-enabled tools.
+Option A – Windows SDK (classic WinDBG + CDB):
+1. Download & run latest Windows 10/11 SDK installer.
+2. In feature selection, ensure “Debugging Tools for Windows” is checked.
+3. Default path (x64 tools):
+   - `C:\Program Files (x86)\Windows Kits\10\Debuggers\x64` (adjust version if different)
 
-## Features (Current)
-- Session lifecycle: open dump (`open_dump`), open remote (`open_remote`), close (`close_dump`)
-- Command execution with allow/deny policy (`run_command`)
-- Discovery (`list_tools`), health (`health_check`), session info (`session_info`)
-- Structured crash analysis (`analyze_dump`) returning JSON + Markdown
-- Typed contracts (in progress migration) — example: `AnalyzeDumpTool`
+Option B – WinDbg Preview (Microsoft Store):
+1. Install “WinDbg Preview” from Microsoft Store.
+2. Preview includes a modern UI; the classic CDB may still be preferred for automation.
 
-## Build & Run (Local)
-Prerequisites: .NET 8 SDK, Windows (required for CDB/WinDBG integration).
-
-Build solution:
+Option C – winget (script-friendly):
 ```powershell
-dotnet build .\mcp-windbg-dotnet.sln
+winget install --id Microsoft.WindowsSDK --source winget
+```
+After install, verify path contains `cdb.exe`.
+
+Option D – Standalone Debugging Tools (Visual Studio installer):
+1. Launch Visual Studio Installer > Modify.
+2. Individual components: add “Just-In-Time Debugger / Windows 10 SDK Debugging Tools”.
+
+Environment Setup (recommended):
+```powershell
+$env:WINDBG_PATH = "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64"
+# Persist (PowerShell profile):  Add-Content $PROFILE '$env:WINDBG_PATH="C:\Program Files (x86)\Windows Kits\10\Debuggers\x64"'
+```
+Quick sanity test:
+```powershell
+& "$env:WINDBG_PATH\cdb.exe" -version
 ```
 
-Run MCP server (foreground):
-```powershell
-dotnet run --project .\src\Mcp.Windbg.Server\Mcp.Windbg.Server.csproj
+---
+## 2. Example MCP Configs
+
+### VS Code (settings.json)
+```jsonc
+{
+  "modelContextProtocol.servers": {
+    "windbg": {
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}/src/Mcp.Windbg.Server/Mcp.Windbg.Server.csproj"
+      ],
+      "env": {
+        "WINDBG_PATH": "C:/Program Files (x86)/Windows Kits/10/Debuggers/x64"
+      },
+      "restart": "onFailure",
+      "version": 1
+    }
+  }
+}
 ```
 
-Optional environment (example):
-```powershell
-$env:WINDBG_PATH = "C:\\Program Files (x86)\\Windows Kits\\10\\Debuggers\\x64"
+### Node.js (simple pipe client)
+```javascript
+import { spawn } from 'node:child_process';
+const proc = spawn('dotnet', ['run', '--project', 'src/Mcp.Windbg.Server/Mcp.Windbg.Server.csproj'], {
+  stdio: ['pipe', 'pipe', 'inherit'],
+  env: { ...process.env, WINDBG_PATH: 'C:/Program Files (x86)/Windows Kits/10/Debuggers/x64' }
+});
+proc.stdout.on('data', d => process.stdout.write('[SERVER] ' + d));
+proc.stdin.write('{"method":"list_tools"}\n');
 ```
 
-## Protocol Messages (Wire Examples)
+### Python (simple pipe client)
+```python
+import json, subprocess, threading
+proc = subprocess.Popen([
+    'dotnet','run','--project','src/Mcp.Windbg.Server/Mcp.Windbg.Server.csproj'
+], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+def reader():
+    for line in proc.stdout: print('[SERVER]', line.rstrip())
+threading.Thread(target=reader, daemon=True).start()
+proc.stdin.write(json.dumps({"method":"list_tools"}) + "\n")
+proc.stdin.flush()
+```
+
+### Wire Message Examples
 List tools:
 ```json
 {"method":"list_tools"}
 ```
-
-Call a tool (generic shape):
+Run command (example):
 ```json
-{"method":"call_tool","name":"health_check"}
+{"method":"call_tool","name":"run_command","args":{"sessionId":"sess1","command":"!analyze -v"}}
 ```
-
-Analyze dump (typed args example):
-```json
-{
-	"method": "call_tool",
-	"name": "analyze_dump",
-	"args": {
-		"sessionId": "sess-123",
-		"includeModules": true,
-		"includeThreads": true,
-		"includeRegisters": false,
-		"stackFrameCount": 12
-	}
-}
-```
-
-Response (abridged):
-```json
-{
-	"ok": true,
-	"result": {
-		"success": true,
-		"sessionId": "sess-123",
-		"analysisTimeMs": 842,
-		"timestamp": "2025-09-22T12:34:56.789Z",
-		"analysis": { "sections": [ { "title": "Crash Analysis" } ] },
-		"markdown": "# Crash Dump Analysis Report...",
-		"options": {
-			"includeModules": true,
-			"includeThreads": true,
-			"includeRegisters": false,
-			"stackFrameCount": 12
-		}
-	}
-}
-```
-
-## VS Code MCP Configuration Example
-If you are using an MCP-capable VS Code extension (hypothetical setting name shown): add to your `settings.json`:
-```jsonc
-{
-	"modelContextProtocol.servers": {
-		"windbg": {
-			"command": "dotnet",
-			"args": [
-				"run",
-				"--project",
-				"${workspaceFolder}/src/Mcp.Windbg.Server/Mcp.Windbg.Server.csproj"
-			],
-			"env": {
-				"WINDBG_PATH": "C:/Program Files (x86)/Windows Kits/10/Debuggers/x64"
-			},
-			"restart": "onFailure",
-			"version": 1
-		}
-	}
-}
-```
-
-Once started, the client should issue `list_tools` and then allow invoking e.g. `open_dump`:
-```json
-{
-	"method": "call_tool",
-	"name": "open_dump",
-	"args": { "path": "C:/dumps/sample.dmp" }
-}
-```
-
-## Claude (JavaScript) MCP Client Sample
-Below is a minimal Node.js script using a generic MCP client pattern (adjust to your actual Claude SDK / client library):
-```javascript
-import { spawn } from 'node:child_process';
-import { createInterface } from 'node:readline';
-
-function startWindbgServer() {
-	const proc = spawn('dotnet', ['run', '--project', 'src/Mcp.Windbg.Server/Mcp.Windbg.Server.csproj'], {
-		stdio: ['pipe', 'pipe', 'inherit'],
-		env: { ...process.env, WINDBG_PATH: 'C:/Program Files (x86)/Windows Kits/10/Debuggers/x64' }
-	});
-	return proc;
-}
-
-async function main() {
-	const srv = startWindbgServer();
-	const rl = createInterface({ input: srv.stdout });
-	rl.on('line', line => console.log('[SERVER]', line));
-
-	function send(obj) {
-		srv.stdin.write(JSON.stringify(obj) + '\n');
-	}
-
-	// 1. List tools
-	send({ method: 'list_tools' });
-
-	// 2. Open a dump (after you confirm path exists)
-	// send({ method: 'call_tool', name: 'open_dump', args: { path: 'C:/dumps/sample.dmp' } });
-
-	// 3. Later analyze
-	// send({ method: 'call_tool', name: 'analyze_dump', args: { sessionId: 'sess-id', stackFrameCount: 15 } });
-}
-
-main().catch(err => console.error(err));
-```
-
-## Claude (Python) MCP Client Sample
-```python
-import json, subprocess, threading
-
-proc = subprocess.Popen([
-		'dotnet', 'run', '--project', 'src/Mcp.Windbg.Server/Mcp.Windbg.Server.csproj'
-], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-
-def reader():
-		for line in proc.stdout:
-				print('[SERVER]', line.rstrip())
-
-threading.Thread(target=reader, daemon=True).start()
-
-def send(msg):
-		proc.stdin.write(json.dumps(msg) + '\n')
-		proc.stdin.flush()
-
-send({ 'method': 'list_tools' })
-# send({ 'method': 'call_tool', 'name': 'health_check' })
-# send({ 'method': 'call_tool', 'name': 'open_dump', 'args': { 'path': 'C:/dumps/sample.dmp' } })
-
-```
-
-## Tool Summary (Current Names)
-| Tool | Purpose |
-|------|---------|
-| health_check | Basic liveness & uptime info |
-| open_dump | Create a session from a crash dump path |
-| open_remote | Attach remote (CDB `-remote`) |
-| close_dump | Close an existing session |
-| run_command | Execute a WinDBG command within a session (policy guarded) |
-| list_dumps | List candidate dump files from configured search paths |
-| session_info | Return metadata about a session |
-| analyze_dump | Perform structured multi-section analysis |
-
-## Typed Contract Example: analyze_dump (Args / Result)
-Args schema (conceptual):
-```json
-{
-	"sessionId": "string",
-	"includeModules": "boolean?",
-	"includeThreads": "boolean?",
-	"includeRegisters": "boolean?",
-	"stackFrameCount": "int?"
-}
-```
-Result (top-level fields):
-```json
-{
-	"success": true,
-	"sessionId": "string",
-	"analysisTimeMs": 123,
-	"timestamp": "ISO-8601",
-	"analysis": { "sections": [ { "title": "...", "content": "..." } ], "sessionInfo": { ... } },
-	"markdown": "# Crash Dump Analysis Report...",
-	"options": { "includeModules": true, "includeThreads": true, "includeRegisters": false, "stackFrameCount": 10 }
-}
-```
-
-## Roadmap (High-Level)
-- Migrate all remaining tools to typed contracts
-- Managed runtime enrichment (CLRMD) tool (`analyze_managed_context`)
-- Metrics & observability surfaces
-- Rate limiting & advanced policy rules
-
-## Contributing
-PRs/issues welcome. Please align changes with existing PRD documents and create ADRs for notable architectural decisions.
 
 ---
-Generated sections may evolve; treat MCP client config examples as guidance and adapt to your specific MCP-enabled tooling.
+## 3. Tool Catalog
+| Tool | Description |
+|------|-------------|
+| health_check | Server liveness, uptime metadata |
+| open_dump | Open a crash dump and create a session |
+| open_remote | Start remote debug session (`-remote`) |
+| close_dump | Close an existing session |
+| run_command | Execute a debugger command within a session (policy enforced) |
+| list_dumps | Enumerate dump files from configured search paths |
+| session_info | Return metadata about a session |
+| analyze_dump | Structured multi-section crash analysis |
+
+Notes:
+- Arguments & results are being migrated to typed contracts (see `AnalyzeDumpTool`).
+- Additional managed (.NET) enrichment (`analyze_managed_context`) planned.
+
+---
+For extended product docs, PRDs, ADRs, and roadmap: see `docs/prd/` directory.
 
