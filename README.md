@@ -32,23 +32,50 @@ Quick sanity test (if `cdb.exe` present):
 Get-ChildItem $env:WINDBG_PATH
 & "$env:WINDBG_PATH\cdb.exe" -version
 ```
+### Manual debugger discovery (no helper scripts)
+Use these ad‑hoc PowerShell commands to locate a usable console debugger root:
 
-Helper script (optional) to auto-detect debugger root using environment, running processes (pslist / Get-Process), SDK paths, and PATH:
+Check environment first:
 ```powershell
-./scripts/find-windbg.ps1 | Out-Host
+if (Test-Path "$env:WINDBG_PATH/cdb.exe" -or (Get-ChildItem $env:WINDBG_PATH -Filter 'cdb*.exe' -ErrorAction SilentlyContinue)) {
+  "WINDBG_PATH ok: $env:WINDBG_PATH"
+} else { "WINDBG_PATH not set or no cdb*.exe present" }
 ```
 
-Stage binaries from a Microsoft Store WinDbg package (copies or symlinks into `C:\Tools\WinDbg`):
+Canonical SDK path (if you installed the Windows SDK):
 ```powershell
-# Auto-detect newest package and stage (copies) into C:\Tools\WinDbg
-./scripts/stage-windbg-store.ps1
-
-# Explicit path example (from your observation):
-./scripts/stage-windbg-store.ps1 -StorePath 'C:\Program Files\WindowsApps\Microsoft.WinDbg_1.2409.17001.0_x64__8wekyb3d8bbwe\amd64'
-
-# Use symbolic links instead of copies (requires appropriate privileges):
-./scripts/stage-windbg-store.ps1 -Symlink -Force
+$classic = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10/Debuggers/x64/cdb.exe'
+Test-Path $classic
 ```
+
+PATH search:
+```powershell
+where.exe cdb.exe 2>$null
+where.exe cdbX64.exe 2>$null
+```
+
+Lightweight filesystem search (first few matches):
+```powershell
+Get-ChildItem 'C:/Program Files','C:/Program Files (x86)' -Filter 'cdb*.exe' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 5 FullName
+```
+
+List newest Microsoft Store WinDbg package & show its cdb variants (may require permission adjustments):
+```powershell
+$pkg = Get-ChildItem 'C:/Program Files/WindowsApps' -Directory -Filter 'Microsoft.WinDbg_*' 2>$null | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if ($pkg) { Get-ChildItem $pkg.FullName -Filter 'cdb*.exe' -Recurse | Select-Object FullName } else { 'No Store package found or access denied.' }
+```
+
+### Manually staging Store binaries (copy only)
+Example using the path you identified (`amd64` folder). Adjust version/build if different.
+```powershell
+$store = 'C:/Program Files/WindowsApps/Microsoft.WinDbg_1.2409.17001.0_x64__8wekyb3d8bbwe/amd64'
+New-Item -ItemType Directory -Path 'C:/Tools/WinDbg' -Force | Out-Null
+Copy-Item "$store/cdbX64.exe" 'C:/Tools/WinDbg/cdb.exe' -Force
+Copy-Item "$store/dbgeng.dll","$store/dbghelp.dll","$store/symsrv.dll","$store/srcsrv.dll" 'C:/Tools/WinDbg' -Force -ErrorAction SilentlyContinue
+$env:WINDBG_PATH = 'C:/Tools/WinDbg'
+"Staged debugger root: $env:WINDBG_PATH"
+```
+If access to `WindowsApps` is denied, adjust folder permissions manually (right‑click -> Security) or run in an elevated terminal. Avoid recursive wide-open ACL changes—copy only what you need.
 
 ---
 ## 2. Example MCP Configs
