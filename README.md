@@ -46,7 +46,8 @@ Get-ChildItem $env:WINDBG_PATH
         "${workspaceFolder}/src/Mcp.Windbg.Server/Mcp.Windbg.Server.csproj"
       ],
       "env": {
-        "WINDBG_PATH": "C:/Program Files (x86)/Windows Kits/10/Debuggers/x64"
+        // Directory containing console debugger binaries you copied/symlinked
+        "WINDBG_PATH": "C:/Tools/WinDbg"
       },
       "restart": "onFailure",
       "version": 1
@@ -60,7 +61,7 @@ Get-ChildItem $env:WINDBG_PATH
 import { spawn } from 'node:child_process';
 const proc = spawn('dotnet', ['run', '--project', 'src/Mcp.Windbg.Server/Mcp.Windbg.Server.csproj'], {
   stdio: ['pipe', 'pipe', 'inherit'],
-  env: { ...process.env, WINDBG_PATH: 'C:/Program Files (x86)/Windows Kits/10/Debuggers/x64' }
+  env: { ...process.env, WINDBG_PATH: 'C:/Tools/WinDbg' }
 });
 proc.stdout.on('data', d => process.stdout.write('[SERVER] ' + d));
 proc.stdin.write('{"method":"list_tools"}\n');
@@ -70,8 +71,8 @@ proc.stdin.write('{"method":"list_tools"}\n');
 ```python
 import json, subprocess, threading
 proc = subprocess.Popen([
-    'dotnet','run','--project','src/Mcp.Windbg.Server/Mcp.Windbg.Server.csproj'
-], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+  'dotnet','run','--project','src/Mcp.Windbg.Server/Mcp.Windbg.Server.csproj'
+], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env={**os.environ, 'WINDBG_PATH': 'C:/Tools/WinDbg'})
 def reader():
     for line in proc.stdout: print('[SERVER]', line.rstrip())
 threading.Thread(target=reader, daemon=True).start()
