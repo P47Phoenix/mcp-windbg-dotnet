@@ -15,6 +15,8 @@ Notes:
 - Modern WinDbg provides the updated UI and underlying debugging engine.
 - If you require a stable, non-packaged path with an unsuffixed `cdb.exe` for scripting, you can additionally install the Windows SDK (intentionally omitted here per project guidance to keep this section minimal).
 - Store installation resides under a protected `WindowsApps` folder; for automation you may copy or symlink the needed console debugger binaries into a tools directory you control and point `WINDBG_PATH` there.
+ - This server actually invokes the console debugger (`cdb.exe` / `cdbX64.exe`); the WinDbg GUI itself is **not** required for headless automation.
+ - To populate `C:\Tools\WinDbg`, copy `cdb.exe` (and optionally supporting DLLs like `dbgeng.dll`, `dbghelp.dll` if needed) from an SDK debugger directory or from the Store package folder you have access to.
 
 Prepare environment variable (after you have a tools directory with `cdb.exe` or variants):
 ```powershell
@@ -69,7 +71,7 @@ proc.stdin.write('{"method":"list_tools"}\n');
 
 ### Python (simple pipe client)
 ```python
-import json, subprocess, threading
+import json, subprocess, threading, os
 proc = subprocess.Popen([
   'dotnet','run','--project','src/Mcp.Windbg.Server/Mcp.Windbg.Server.csproj'
 ], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env={**os.environ, 'WINDBG_PATH': 'C:/Tools/WinDbg'})
@@ -78,6 +80,16 @@ def reader():
 threading.Thread(target=reader, daemon=True).start()
 proc.stdin.write(json.dumps({"method":"list_tools"}) + "\n")
 proc.stdin.flush()
+```
+
+### Manual sanity test (PowerShell)
+Send a single `list_tools` request through stdin and capture the one-line JSON response:
+```powershell
+'{"method":"list_tools"}' | dotnet run --project src/Mcp.Windbg.Server/Mcp.Windbg.Server.csproj
+```
+Expected output starts with:
+```
+{"ok":true,"result":[{"name":"health_check"...
 ```
 
 ### Wire Message Examples
