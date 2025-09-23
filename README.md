@@ -4,20 +4,19 @@ Minimal Model Context Protocol (MCP) server for policy-aware WinDBG / CDB automa
 
 ---
 ## 1. Quick Setup
-Goal: Point `WINDBG_PATH` at a directory containing `cdb.exe` (from the Windows SDK Debugging Tools) and run the server.
+Single path assumption: WinDbg (Store) is installed at
+`C:\Program Files\WindowsApps\Microsoft.WinDbg_1.2409.17001.0_x64__8wekyb3d8bbwe\amd64`
 
-1. Install "Debugging Tools for Windows" (part of the Windows 10/11 SDK). During SDK setup ensure the Debugging Tools feature is selected. (You do NOT need the Store WinDbg for this minimal setup.)
-2. After install, `cdb.exe` is typically located here:
-  `C:\Program Files (x86)\Windows Kits\10\Debuggers\x64`
-3. Set environment variable (current session):
+1. Install WinDbg from the Microsoft Store (already done in your scenario).
+2. Set environment variable (current session):
 ```powershell
-$env:WINDBG_PATH = 'C:/Program Files (x86)/Windows Kits/10/Debuggers/x64'
+$env:WINDBG_PATH = 'C:/Program Files/WindowsApps/Microsoft.WinDbg_1.2409.17001.0_x64__8wekyb3d8bbwe/amd64'
 ```
-4. Sanity check:
+3. Sanity check:
 ```powershell
 & "$env:WINDBG_PATH/cdb.exe" -version
 ```
-5. Run server & list tools:
+4. Run server & list tools:
 ```powershell
 '{"method":"list_tools"}' | dotnet run --project src/Mcp.Windbg.Server/Mcp.Windbg.Server.csproj
 ```
@@ -38,8 +37,7 @@ Expected output starts with `{ "ok": true, "result": [ { "name": "health_check" 
         "${workspaceFolder}/src/Mcp.Windbg.Server/Mcp.Windbg.Server.csproj"
       ],
       "env": {
-        // Directory containing console debugger binaries you copied/symlinked
-        "WINDBG_PATH": "C:/Tools/WinDbg"
+  "WINDBG_PATH": "C:/Program Files/WindowsApps/Microsoft.WinDbg_1.2409.17001.0_x64__8wekyb3d8bbwe/amd64"
       },
       "restart": "onFailure",
       "version": 1
@@ -53,7 +51,7 @@ Expected output starts with `{ "ok": true, "result": [ { "name": "health_check" 
 import { spawn } from 'node:child_process';
 const proc = spawn('dotnet', ['run', '--project', 'src/Mcp.Windbg.Server/Mcp.Windbg.Server.csproj'], {
   stdio: ['pipe', 'pipe', 'inherit'],
-  env: { ...process.env, WINDBG_PATH: 'C:/Tools/WinDbg' }
+  env: { ...process.env, WINDBG_PATH: 'C:/Program Files/WindowsApps/Microsoft.WinDbg_1.2409.17001.0_x64__8wekyb3d8bbwe/amd64' }
 });
 proc.stdout.on('data', d => process.stdout.write('[SERVER] ' + d));
 proc.stdin.write('{"method":"list_tools"}\n');
@@ -64,7 +62,7 @@ proc.stdin.write('{"method":"list_tools"}\n');
 import json, subprocess, threading, os
 proc = subprocess.Popen([
   'dotnet','run','--project','src/Mcp.Windbg.Server/Mcp.Windbg.Server.csproj'
-], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env={**os.environ, 'WINDBG_PATH': 'C:/Tools/WinDbg'})
+], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env={**os.environ, 'WINDBG_PATH': 'C:/Program Files/WindowsApps/Microsoft.WinDbg_1.2409.17001.0_x64__8wekyb3d8bbwe/amd64'})
 def reader():
     for line in proc.stdout: print('[SERVER]', line.rstrip())
 threading.Thread(target=reader, daemon=True).start()
