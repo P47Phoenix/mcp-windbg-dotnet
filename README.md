@@ -8,10 +8,13 @@ Goal: Have `cdb.exe` at `C:/Tools/WinDbg/cdb.exe` and run the server.
 
 1. Install WinDbg (Microsoft Store).
 2. Launch it once, then close (initial provisioning).
-3. Copy the console debugger binary (adjust version if different):
+3. Copy the console debugger binary (actual file is `cdb.exe` inside the `amd64` subfolder; adjust version if different):
 ```powershell
 New-Item -ItemType Directory -Path 'C:/Tools/WinDbg' -Force | Out-Null
-Copy-Item 'C:/Program Files/WindowsApps/Microsoft.WinDbg_1.2409.17001.0_x64__8wekyb3d8bbwe/amd64/cdbX64.exe' 'C:/Tools/WinDbg/cdb.exe' -Force
+# List available debugger executables in the Store package (optional sanity check)
+Get-ChildItem 'C:/Program Files/WindowsApps/Microsoft.WinDbg_1.2409.17001.0_x64__8wekyb3d8bbwe/amd64' -Filter 'cdb*.exe' 2>$null
+# Copy the 64-bit console debugger
+Copy-Item 'C:/Program Files/WindowsApps/Microsoft.WinDbg_1.2409.17001.0_x64__8wekyb3d8bbwe/amd64/cdb.exe' 'C:/Tools/WinDbg/cdb.exe' -Force
 ```
 4. Set environment variable (for this session):
 ```powershell
