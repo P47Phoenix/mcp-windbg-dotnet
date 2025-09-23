@@ -4,27 +4,20 @@ Minimal Model Context Protocol (MCP) server for policy-aware WinDBG / CDB automa
 
 ---
 ## 1. Quick Setup
-Goal: Have `cdb.exe` at `C:/Tools/WinDbg/cdb.exe` and run the server.
+Goal: Point `WINDBG_PATH` at a directory containing `cdb.exe` (from the Windows SDK Debugging Tools) and run the server.
 
-1. Install WinDbg (Microsoft Store).
-2. Launch it once, then close (initial provisioning).
-3. Copy the console debugger binary (actual file is `cdb.exe` inside the `amd64` subfolder; adjust version if different):
+1. Install "Debugging Tools for Windows" (part of the Windows 10/11 SDK). During SDK setup ensure the Debugging Tools feature is selected. (You do NOT need the Store WinDbg for this minimal setup.)
+2. After install, `cdb.exe` is typically located here:
+  `C:\Program Files (x86)\Windows Kits\10\Debuggers\x64`
+3. Set environment variable (current session):
 ```powershell
-New-Item -ItemType Directory -Path 'C:/Tools/WinDbg' -Force | Out-Null
-# List available debugger executables in the Store package (optional sanity check)
-Get-ChildItem 'C:/Program Files/WindowsApps/Microsoft.WinDbg_1.2409.17001.0_x64__8wekyb3d8bbwe/amd64' -Filter 'cdb*.exe' 2>$null
-# Copy the 64-bit console debugger
-Copy-Item 'C:/Program Files/WindowsApps/Microsoft.WinDbg_1.2409.17001.0_x64__8wekyb3d8bbwe/amd64/cdb.exe' 'C:/Tools/WinDbg/cdb.exe' -Force
+$env:WINDBG_PATH = 'C:/Program Files (x86)/Windows Kits/10/Debuggers/x64'
 ```
-4. Set environment variable (for this session):
+4. Sanity check:
 ```powershell
-$env:WINDBG_PATH = 'C:/Tools/WinDbg'
+& "$env:WINDBG_PATH/cdb.exe" -version
 ```
-5. Sanity check:
-```powershell
-& $env:WINDBG_PATH/cdb.exe -version
-```
-6. Run server & list tools:
+5. Run server & list tools:
 ```powershell
 '{"method":"list_tools"}' | dotnet run --project src/Mcp.Windbg.Server/Mcp.Windbg.Server.csproj
 ```
