@@ -81,11 +81,12 @@ public sealed class CdbSession : IDisposable
             throw new FileNotFoundException($"Dump file not found: {dumpPath}");
 
         var sessionId = Guid.NewGuid().ToString("N")[..8];
+        var cdbPath = ResolveCdbExecutable();
         var process = new Process
         {
             StartInfo = new ProcessStartInfo
             {
-                FileName = "cdb.exe",
+                FileName = cdbPath,
                 Arguments = $"-z \"{dumpPath}\" -c \".echo Session {sessionId} ready\"",
                 UseShellExecute = false,
                 RedirectStandardInput = true,
@@ -127,11 +128,12 @@ public sealed class CdbSession : IDisposable
             throw new ArgumentException("Connection string cannot be null or empty", nameof(connectionString));
 
         var sessionId = Guid.NewGuid().ToString("N")[..8];
+        var cdbPath = ResolveCdbExecutable();
         var process = new Process
         {
             StartInfo = new ProcessStartInfo
             {
-                FileName = "cdb.exe",
+                FileName = cdbPath,
                 Arguments = $"-remote {connectionString} -c \".echo Session {sessionId} ready\"",
                 UseShellExecute = false,
                 RedirectStandardInput = true,
@@ -159,6 +161,36 @@ public sealed class CdbSession : IDisposable
             process.Dispose();
             throw;
         }
+    }
+
+    /// <summary>
+    /// Resolves the path to cdb.exe using, in order:
+    /// 1) WINDBG_PATH environment variable (joined with cdb.exe)
+    /// 2) Default Windows SDK Debuggers path
+    /// 3) Falls back to "cdb.exe" (PATH lookup)
+    /// </summary>
+    private static string ResolveCdbExecutable()
+    {
+        const string exeName = "cdb.exe";
+
+        // Prefer explicit environment variable
+        var env = Environment.GetEnvironmentVariable("WINDBG_PATH");
+        if (!string.IsNullOrWhiteSpace(env))
+        {
+            var candidate = Path.Combine(env, exeName);
+            if (File.Exists(candidate)) return candidate;
+        }
+
+        // Common default SDK location
+        var pf86 = Environment.GetEnvironmentVariable("ProgramFiles(x86)");
+        if (!string.IsNullOrWhiteSpace(pf86))
+        {
+            var sdkCandidate = Path.Combine(pf86, "Windows Kits", "10", "Debuggers", "x64", exeName);
+            if (File.Exists(sdkCandidate)) return sdkCandidate;
+        }
+
+        // Fallback to PATH resolution
+        return exeName;
     }
 
     /// <summary>
