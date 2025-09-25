@@ -7,6 +7,12 @@ Minimal Model Context Protocol (MCP) server for policy-aware WinDBG / CDB automa
 Single path assumption: WinDbg (Store) is installed at
 `C:\Program Files\WindowsApps\Microsoft.WinDbg_1.2409.17001.0_x64__8wekyb3d8bbwe\amd64`
 
+Prerequisite: Install the latest Windows 10/11 SDK and ensure the following components are selected so that `cdb.exe` is available:
+- **Debugging Tools for Windows** (required)
+- (optional) Windows SDK component updates if prompted
+
+The SDK installs `cdb.exe` under `C:\Program Files (x86)\Windows Kits\10\Debuggers\x64`. The server will use that path automatically if `WINDBG_PATH` does not contain a copy of the console debugger.
+
 1. Install WinDbg from the Microsoft Store (already done in your scenario).
 2. Set environment variable (current session):
 ```powershell
